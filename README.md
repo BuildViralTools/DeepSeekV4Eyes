@@ -11,7 +11,7 @@ provider is auto-detected from your API key. No key or model is hardcoded.
 
 ## The problem it solves
 
-Coding assistants (Claude Code, Copilot, Cursor, and others) can describe
+Coding assistants (Claude Code, Copilot, Grok, and others) can describe
 images **only when the model powering them supports vision** — and that's not
 always the case:
 
@@ -46,6 +46,13 @@ reads back the words, regardless of which model your assistant is running on.
 | Which provider am I talking to? | Auto-detects from the key prefix (`sk-ant-api-…` → Claude, `sk-proj-…` → GPT, `xai-…` → Grok, `AIza…` → Gemini), or force it with `--provider` |
 | Windows console can't print `ă`, `ş` etc. (cp1252) | Forces stdout/stderr to UTF-8 |
 | No SDK knowledge needed | Two deps: `pip install anthropic pillow` (OpenAI / Grok / Gemini talk plain HTTP via the standard library) |
+
+## Easily adaptable
+
+Both files are tiny, plain Python — easy to tweak for anything. The same pattern
+can be extended beyond *describing* images, e.g. to **generate** images with GPT
+or Gemini. And since the setup is so simple, you can even just ask your AI
+assistant to adapt and configure `capture.py` and `eyes.py` for you.
 
 ## Requirements
 
