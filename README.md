@@ -168,3 +168,7 @@ injected value must not shadow the key eyes.py uses for the real API.
 
 MIT — do whatever you like. If it saves you time, say hi to whoever shared it
 with you. 🚀
+
+## Let's connect
+
+Follow me on X: [@NBSCToken](https://x.com/NBSCToken)
