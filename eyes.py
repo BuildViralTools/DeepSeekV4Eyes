@@ -23,6 +23,7 @@ Usage:
     python eyes.py <image> --model claude-opus-5
     python eyes.py <image> --provider openai
     python eyes.py <image> --api-key sk-proj-... --provider openai
+    python eyes.py --create "a logo: an eye with a lightning bolt" --provider openai
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 try:
@@ -54,6 +56,7 @@ except AttributeError:  # pragma: no cover — older Pythons
     pass
 
 ENV_FILE = Path(__file__).resolve().parent / ".env"
+OUT_DIR = Path(__file__).resolve().parent / "generated"
 
 DEFAULT_PROMPT = (
     "Describe this image in detail: structure, layout, colors, any visible "
@@ -69,6 +72,20 @@ PROVIDER_DEFAULTS = {
         "model": "gemini-2.5-flash",
         "base_url": "https://generativelanguage.googleapis.com/v1beta",
     },
+}
+
+# ─────────────────────────────────────────────────────────────────
+# ⚙️  IMAGE GENERATION — EDIT YOUR MODELS HERE. Make it yours.
+#     These are used by `python eyes.py --create "<prompt>"`.
+#     Model IDs change over time — check each provider's current list
+#     and edit freely. You can also add more providers below.
+#
+#     Note: Anthropic (Claude) has NO image-generation API.
+# ─────────────────────────────────────────────────────────────────
+IMAGE_MODELS = {
+    "openai": "gpt-5.6",                        # OpenAI (e.g. gpt-image-1 / dall-e-3 — edit to current ID)
+    "grok": "grok-image-1.5",                   # xAI Grok Image
+    "gemini": "imagen-3.0-generate-002",        # Google Imagen
 }
 
 # Which env-var names hold the key for each provider (.env preferred, then env).
@@ -285,6 +302,100 @@ def call_gemini(base_url: str, api_key: str, model: str, prompt: str,
         ) from None
 
 
+# ── Image generation (used with --create) ─────────────────────────
+
+def fetch_bytes(url: str) -> bytes:
+    """Download a URL into bytes."""
+    with urllib.request.urlopen(url, timeout=120) as resp:
+        return resp.read()
+
+
+def generate_openai_compatible(base_url: str, api_key: str, model: str,
+                               prompt: str, size: str | None) -> bytes:
+    """POST /images/generations — works for OpenAI and Grok (both OpenAI-compatible).
+
+    `size` is only sent when provided: Grok rejects it ("Argument not supported").
+    """
+    url = base_url.rstrip("/") + "/images/generations"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "n": 1,
+        "response_format": "b64_json",
+    }
+    if size:
+        payload["size"] = size
+    data = http_json(url, headers, payload)
+    try:
+        item = data["data"][0]
+    except (KeyError, IndexError, TypeError):
+        raise RuntimeError(
+            f"unexpected response shape: {json.dumps(data)[:500]}"
+        ) from None
+    if "b64_json" in item:
+        return base64.b64decode(item["b64_json"])
+    if "url" in item:
+        return fetch_bytes(item["url"])
+    raise RuntimeError(f"no image in response: {json.dumps(item)[:300]}")
+
+
+def generate_gemini(base_url: str, api_key: str, model: str, prompt: str) -> bytes:
+    """Google Imagen via the :predict endpoint."""
+    url = f"{base_url.rstrip('/')}/models/{model}:predict?key={api_key}"
+    payload = {
+        "instances": [{"prompt": prompt}],
+        "parameters": {"sampleCount": 1},
+    }
+    data = http_json(url, {}, payload)
+    if "error" in data:
+        raise RuntimeError(f"Gemini error: {json.dumps(data['error'])}")
+    try:
+        b64 = data["predictions"][0]["bytesBase64Encoded"]
+    except (KeyError, IndexError, TypeError):
+        raise RuntimeError(
+            f"unexpected response shape: {json.dumps(data)[:500]}"
+        ) from None
+    return base64.b64decode(b64)
+
+
+def run_create(prompt: str, provider: str, api_key: str, base_url: str,
+               model: str | None, size: str, out_path: str | None,
+               verbose: bool) -> None:
+    """Generate an image from a prompt and save it to disk."""
+    if provider == "anthropic":
+        sys.exit(
+            "ERROR: Claude can't generate images. Use --provider openai, grok, or "
+            "gemini (and a matching API key)."
+        )
+    if provider not in IMAGE_MODELS:
+        sys.exit(
+            f"ERROR: no image-generation model configured for '{provider}'. "
+            f"Edit IMAGE_MODELS at the top of eyes.py."
+        )
+    gen_model = model or IMAGE_MODELS[provider]
+    if verbose:
+        print(f"[eyes] create provider={provider} model={gen_model} base_url={base_url}",
+              file=sys.stderr)
+
+    if provider == "openai":
+        image_bytes = generate_openai_compatible(base_url, api_key, gen_model, prompt, size)
+    elif provider == "grok":
+        # Grok's API rejects the `size` argument.
+        image_bytes = generate_openai_compatible(base_url, api_key, gen_model, prompt, None)
+    else:  # gemini
+        image_bytes = generate_gemini(base_url, api_key, gen_model, prompt)
+
+    if out_path:
+        out = Path(out_path)
+    else:
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out = OUT_DIR / f"{provider}-{stamp}.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(image_bytes)
+    print(out)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Analyze an image with a vision-capable model "
@@ -297,12 +408,34 @@ def main() -> None:
                "  python eyes.py ui.png --verbose",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("image", help="Path to the image file (png/jpg/jpeg/gif/webp/bmp)")
+    parser.add_argument(
+        "image",
+        nargs="?",
+        default=None,
+        help="Path to the image file to describe (png/jpg/jpeg/gif/webp/bmp)",
+    )
     parser.add_argument(
         "prompt",
         nargs="?",
         default=None,
         help="What to look for. Defaults to a generic detailed description.",
+    )
+    parser.add_argument(
+        "--create",
+        metavar="PROMPT",
+        default=None,
+        help="Generate an image from a prompt instead of describing one. "
+             "Needs a key that supports generation (openai / grok / gemini).",
+    )
+    parser.add_argument(
+        "--size",
+        default="1024x1024",
+        help="Image size for --create (default: 1024x1024)",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Output path for --create (default: generated/...)",
     )
     parser.add_argument(
         "--provider",
@@ -338,16 +471,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    image_path = Path(args.image)
-    if not image_path.is_file():
-        parser.error(f"image not found: {image_path}")
+    if args.create and args.image:
+        parser.error("provide EITHER an image to describe OR --create — not both.")
+    if not args.create and not args.image:
+        parser.error("provide an image to describe, or --create <prompt> to generate one.")
 
     dotenv = parse_dotenv(ENV_FILE)
     provider, api_key = resolve(args.api_key, dotenv, args.provider)
+    base_url = args.base_url or PROVIDER_DEFAULTS[provider]["base_url"]
 
-    defaults = PROVIDER_DEFAULTS[provider]
-    model = args.model or defaults["model"]
-    base_url = args.base_url or defaults["base_url"]
+    if args.create:
+        try:
+            run_create(args.create, provider, api_key, base_url, args.model,
+                       args.size, args.out, args.verbose)
+        except RuntimeError as exc:
+            sys.exit(f"ERROR: {exc}")
+        return
+
+    image_path = Path(args.image)
+    if not image_path.is_file():
+        parser.error(f"image not found: {image_path}")
+    model = args.model or PROVIDER_DEFAULTS[provider]["model"]
 
     if args.verbose:
         source = next(

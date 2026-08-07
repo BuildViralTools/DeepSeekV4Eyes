@@ -47,12 +47,18 @@ reads back the words, regardless of which model your assistant is running on.
 | Windows console can't print `ă`, `ş` etc. (cp1252) | Forces stdout/stderr to UTF-8 |
 | No SDK knowledge needed | Two deps: `pip install anthropic pillow` (OpenAI / Grok / Gemini talk plain HTTP via the standard library) |
 
-## Easily adaptable
+## Make it yours — this is just the idea
 
-Both files are tiny, plain Python — easy to tweak for anything. The same pattern
-can be extended beyond *describing* images, e.g. to **generate** images with GPT
-or Gemini. And since the setup is so simple, you can even just ask your AI
-assistant to adapt and configure `capture.py` and `eyes.py` for you.
+Both files are tiny, plain Python — a starting point, not a finished product.
+Everything is meant to be edited:
+
+- **Models**: `PROVIDER_DEFAULTS` (vision) and `IMAGE_MODELS` (generation) at
+  the top of `eyes.py`. Model IDs change — check each provider and adjust.
+- **Add a provider**: every provider is one small function; copy the pattern of
+  `call_openai_compatible` or `call_gemini`.
+- **Ask your AI**: because the whole thing is two small files, you can even just
+  tell your AI assistant to adapt and configure `capture.py` and `eyes.py` for
+  you. What's here is the seed of an idea — build on it.
 
 ## Requirements
 
@@ -99,6 +105,10 @@ python eyes.py ui.png --provider gemini --model gemini-2.5-pro
 python eyes.py ui.png --api-key sk-proj-... --provider openai
 python eyes.py ui.png --api-key sk-ant-api03-... --base-url https://api.anthropic.com
 
+# Generate an image (needs an openai / grok / gemini key)
+python eyes.py --create "a logo: an eye with a lightning bolt" --provider openai
+python eyes.py --create "futuristic landing page, dark theme" --provider grok
+
 # See which provider/model/key was resolved
 python eyes.py ui.png --verbose
 ```
@@ -111,6 +121,30 @@ Point the assistant at eyes.py, e.g. when reviewing a screenshot:
 
 The assistant runs the command, reads the description as text, and reasons
 about it — the image never has to reach the assistant's own model.
+
+## Create images too (`--create`)
+
+eyes.py can also **generate** images, not just describe them:
+
+```bash
+python eyes.py --create "a logo: an eye with a lightning bolt" --provider openai
+python eyes.py --create "futuristic landing page, dark theme" --provider grok
+python eyes.py --create "minimalist poster" --provider gemini --size 1024x1024
+```
+
+The image is saved to `generated/` (or `--out <path>`).
+
+**Which providers can generate?** Only the ones with an image-generation model:
+
+| Provider | Default `--create` model | Notes |
+|---|---|---|
+| OpenAI | `gpt-5.6` | Edit in `IMAGE_MODELS` if your current ID differs |
+| Grok (xAI) | `grok-image-1.5` | Grok rejects the `size` arg — handled automatically |
+| Gemini | `imagen-3.0-generate-002` | |
+| Claude | — | ⚠️ Anthropic has **no** image-generation API |
+
+All models live in one editable place — `IMAGE_MODELS` at the top of
+`eyes.py`. Check each provider's current model list and adjust freely.
 
 ## Bonus: capture.py — show eyes.py your screen
 
@@ -166,6 +200,7 @@ injected value must not shadow the key eyes.py uses for the real API.
 | `401 API key is invalid` | Wrong / revoked key, or key from a different provider | Use a key that matches `--provider`; check the `.env` entry |
 | `could not auto-detect the provider` | Key prefix isn't recognized | Pass `--provider {anthropic|openai|grok|gemini}` |
 | Model answers `[Unsupported Image]` | Request went to a non-vision gateway | `--provider` / `--base-url` are wrong; eyes.py should hit a real vision API |
+| `--create` says "Claude can't generate" | Your key is Anthropic | Use an OpenAI / Grok / Gemini key with `--provider` |
 | `404 model ... not found` | Typo in `--model`, or model ID no longer exists | Check the provider's current model list |
 | `429 rate limited` | Hit your rate limit | Wait, or use a smaller/cheaper model |
 | Garbled / `cp1252` characters | Windows console | Run with the current version (UTF-8 forced automatically) |
