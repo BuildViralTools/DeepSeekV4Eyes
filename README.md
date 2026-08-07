@@ -76,14 +76,29 @@ Everything is meant to be edited:
 
 ## Setup (2 minutes)
 
-```bash
-# 1. Install the dependencies
-pip install anthropic pillow
+**1. Install the dependencies:**
 
-# 2. Create a file named .env next to eyes.py and paste your key(s), e.g.:
-#    ANTHROPIC_API_KEY=sk-ant-api03-...
-#    (or OPENAI_API_KEY, XAI_API_KEY, GEMINI_API_KEY, GOOGLE_API_KEY)
+```bash
+pip install anthropic pillow
 ```
+
+**2. Create a `.env` file next to eyes.py — one line, nothing else:**
+
+```bash
+echo "ANTHROPIC_API_KEY=sk-ant-api03-YOUR_KEY" > .env
+```
+
+No quotes, no spaces around `=`, one line. (Or in VS Code: **New File** → name it
+exactly `.env` → paste the line → **Save**.)
+
+Use the matching line for your provider:
+
+| Provider | Line to put in `.env` |
+|---|---|
+| Claude (Anthropic) | `ANTHROPIC_API_KEY=sk-ant-api03-...` |
+| GPT (OpenAI) | `OPENAI_API_KEY=sk-proj-...` |
+| Grok (xAI) | `XAI_API_KEY=xai-...` |
+| Gemini (Google) | `GEMINI_API_KEY=AIza...` |
 
 That's it. Keep `.env` local — never upload or share it.
 
