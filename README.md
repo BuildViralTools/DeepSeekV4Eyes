@@ -200,6 +200,24 @@ The `.env` file deliberately beats the environment: when running inside an
 assistant that injects its own API-related variables for gateway routing, that
 injected value must not shadow the key eyes.py uses for the real API.
 
+## Go fully local (Ollama) — no cloud, no real keys
+
+You can even go fully local: install a local vision model (via Ollama) and
+point eyes.py at its endpoint. DeepSeek keeps coding, a model on your own
+machine does the looking. No cloud, no API keys, fully offline.
+
+```bash
+# 1. Install Ollama and a local vision model
+ollama pull llava        # or: gemma3, moondream, qwen2-vl, ...
+ollama serve
+
+# 2. Point eyes.py at the local endpoint (Ollama ignores the key,
+#    so any placeholder works)
+python eyes.py photo.png --provider openai --base-url http://localhost:11434/v1 --model llava --api-key local
+```
+
+Run DeepSeek locally too and the whole stack stays on your machine.
+
 ## Security notes
 
 - **Never upload or share `.env`** — it holds your API keys and must stay
