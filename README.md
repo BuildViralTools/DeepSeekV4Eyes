@@ -177,6 +177,21 @@ Requires `pillow`. (Pasting an image into a chat usually does **not** save it
 to disk anywhere, so `capture.py` is the reliable way to "show" eyes.py
 something.)
 
+## Bonus: clipwatch.py — auto-save images you copy
+
+Copy or screenshot an image and it lands in `screenshots/` automatically,
+ready for eyes.py. Each one is saved separately, no overwrites.
+
+```bash
+python clipwatch.py                    # watch the clipboard until stopped (Ctrl+C)
+```
+
+Then copy or screenshot as many images as you want — each becomes
+`screenshots/clipboard-<timestamp>.png`. Tell eyes.py which one to look at.
+
+Requires `pillow`. Handy when pasting an image into a chat does **not** save it
+to disk: this catches it straight from the clipboard instead.
+
 ## Vision-capable models
 
 | Provider | Default model | Other good options |
