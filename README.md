@@ -2,7 +2,8 @@
 
 A tiny tool that gives an AI coding assistant **real eyes**: it sends an image
 to a vision-capable model and prints the description as plain text that the
-assistant can read back.
+assistant can read back. It can also **create** images from a prompt with GPT,
+Grok, or Gemini.
 
 **Provider-agnostic.** Works with **Claude, GPT, Grok, or Gemini** — the
 provider is auto-detected from your API key. No key or model is hardcoded.
